@@ -10,7 +10,7 @@ const navLinks = [
 
 export default function Navbar() {
   return (
-    <header className="relative z-50 w-full bg-[#07368F]">
+    <header className="sticky top-0 z-50 w-full bg-[#07368F]">
       <div className="mx-auto flex min-h-[72px] max-w-[1440px] items-center justify-between px-6 py-3 md:px-10">
 
         {/* Logo */}
