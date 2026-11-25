@@ -1,5 +1,6 @@
 "use client";
 
+import UniversitySearch from "@/components/university/UniversitySearch";
 import { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
@@ -8,6 +9,7 @@ import {
   ChevronRight,
   Search,
 } from "lucide-react";
+
 
 const slides = [
   {
@@ -138,25 +140,11 @@ export default function HeroSlider() {
         </div>
       </div>
 
-      {/* SEARCH BAR */}
-      <div className="relative z-40 mx-auto -mt-5 w-[90%] max-w-[600px] md:-mt-6">
-        <form
-          action="/universities"
-          method="GET"
-          className="flex h-[58px] items-center rounded-full border border-gray-200 bg-white px-5 shadow-lg md:h-[64px]"
-        >
-          <Search size={21} className="shrink-0 text-gray-400" />
-
-          <input
-            type="search"
-            name="search"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search University Name"
-            className="h-full w-full bg-transparent px-4 text-center text-sm text-gray-700 outline-none placeholder:text-gray-400 md:text-base"
-          />
-        </form>
-      </div>
+      {/* SHARED SEARCH BAR */}
+    <div className="relative z-40 mx-auto -mt-5 w-[90%] max-w-[600px]">
+        <UniversitySearch variant="home" />
+    </div>
+      
     </section>
   );
 }
