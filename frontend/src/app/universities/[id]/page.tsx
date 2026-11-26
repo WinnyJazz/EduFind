@@ -1,8 +1,6 @@
-
 "use client";
 
 import { useEffect, useState } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import {
@@ -13,6 +11,7 @@ import {
 
 import { University } from "@/types/university";
 import { getUniversityById } from "@/services/universityService";
+import SafeImage from "@/components/common/SafeImage";
 
 export default function UniversityDetailPage() {
   const params = useParams<{ id: string }>();
@@ -134,12 +133,11 @@ export default function UniversityDetailPage() {
 
         {/* University Image */}
         <div className="relative h-[260px] w-full overflow-hidden rounded-2xl bg-gray-100 md:h-[380px]">
-          <Image
+          <SafeImage
             src={university.image}
             alt={university.name}
             fill
             priority
-            unoptimized
             className="object-cover"
             sizes="(max-width: 768px) 100vw, 1024px"
           />

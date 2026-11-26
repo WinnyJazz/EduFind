@@ -1,8 +1,12 @@
+"use client";
 
+import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { MapPin } from "lucide-react";
 import { University } from "@/types/university";
+
+const FALLBACK_IMAGE = "/universitybackup.jpg";
 
 interface UniversityCardProps {
   university: University;
@@ -11,7 +15,12 @@ interface UniversityCardProps {
 export default function UniversityCard({
   university,
 }: UniversityCardProps) {
+  const [imageFailed, setImageFailed] = useState(false);
+
   const detailId = university.slug || university.id;
+  const imageSrc = imageFailed
+    ? FALLBACK_IMAGE
+    : university.image || FALLBACK_IMAGE;
 
   return (
     <Link
@@ -21,11 +30,12 @@ export default function UniversityCard({
       <article className="group overflow-hidden border border-gray-200 bg-white p-3 transition duration-300 hover:-translate-y-1 hover:shadow-lg">
         <div className="relative h-[150px] w-full overflow-hidden bg-gray-100">
           <Image
-            src={university.image}
+            src={imageSrc}
             alt={university.name}
             fill
             sizes="(max-width: 768px) 100vw, 33vw"
             className="object-cover transition duration-500 group-hover:scale-105"
+            onError={() => setImageFailed(true)}
             unoptimized
           />
         </div>

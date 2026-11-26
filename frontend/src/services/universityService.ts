@@ -1,4 +1,3 @@
-
 import {
   University,
   UniversityAPI,
@@ -8,6 +7,29 @@ import {
 const API_URL =
   process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
 
+export const FALLBACK_IMAGE = "/universitybackup.jpg";
+
+// Kembalikan gambar backup kalau URL kosong, "not_found", atau bukan URL valid
+function resolveImage(url?: string | null): string {
+  if (!url) return FALLBACK_IMAGE;
+
+  const value = url.trim();
+  const lower = value.toLowerCase();
+
+  if (
+    !value ||
+    lower === "not_found" ||
+    lower === "not found" ||
+    lower === "null" ||
+    lower === "undefined"
+  ) {
+    return FALLBACK_IMAGE;
+  }
+
+  const isValidUrl = /^https?:\/\//i.test(value) || value.startsWith("/");
+  return isValidUrl ? value : FALLBACK_IMAGE;
+}
+
 function mapUniversity(data: UniversityAPI): University {
   return {
     id: data.kode_pt,
@@ -16,7 +38,7 @@ function mapUniversity(data: UniversityAPI): University {
     location: data.kab_kota_pt,
     province: data.provinsi_pt,
 
-    image: data.gambar_url || "/images/default-universitas.jpg",
+    image: resolveImage(data.gambar_url),
     logo: data.logo_url || "",
 
     description: data.deskripsi_singkat || "Informasi kampus belum tersedia.",
@@ -111,4 +133,41 @@ export async function getUniversityById(
   }
 
   return mapUniversity(result.data);
+}
+
+export async function getAllUniversitiesForMap(): Promise<University[]> {
+  const limit = 100;
+
+  const firstPage = await getUniversities({ page: 1, limit });
+
+  const allUniversities = [...firstPage.universities];
+
+  // Ambil halaman berikutnya secara paralel supaya lebih cepat
+  if (firstPage.totalPages > 1) {
+    const remainingPages = await Promise.all(
+      Array.from({ length: firstPage.totalPages - 1 }, (_, index) =>
+        getUniversities({ page: index + 2, limit })
+      )
+    );
+
+    remainingPages.forEach((result) => {
+      allUniversities.push(...result.universities);
+    });
+  }
+
+  // Buang data dengan koordinat tidak valid
+  return allUniversities.filter((university) => {
+    const lat = Number(university.latitude);
+    const lng = Number(university.longitude);
+
+    return (
+      Number.isFinite(lat) &&
+      Number.isFinite(lng) &&
+      lat >= -90 &&
+      lat <= 90 &&
+      lng >= -180 &&
+      lng <= 180 &&
+      !(lat === 0 && lng === 0)
+    );
+  });
 }
