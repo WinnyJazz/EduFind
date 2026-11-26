@@ -1,31 +1,90 @@
+
 "use client";
 
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { ArrowLeft, ExternalLink, MapPin } from "lucide-react";
-import { universities } from "@/data/universities";
+import {
+  ArrowLeft,
+  ExternalLink,
+  MapPin,
+} from "lucide-react";
+
+import { University } from "@/types/university";
+import { getUniversityById } from "@/services/universityService";
 
 export default function UniversityDetailPage() {
-  const params = useParams();
-  const universityId = Number(params.id);
+  const params = useParams<{ id: string }>();
+  const universityId = params.id;
 
-  const university = universities.find(
-    (item) => item.id === universityId
-  );
+  const [university, setUniversity] = useState<University | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
-  if (!university) {
+  useEffect(() => {
+    let isMounted = true;
+
+    async function fetchUniversity() {
+      try {
+        setLoading(true);
+        setError("");
+
+        const result = await getUniversityById(universityId);
+
+        if (isMounted) {
+          setUniversity(result);
+        }
+      } catch (err) {
+        if (isMounted) {
+          setError(
+            err instanceof Error
+              ? err.message
+              : "Failed to load university"
+          );
+        }
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
+      }
+    }
+
+    if (universityId) {
+      fetchUniversity();
+    }
+
+    return () => {
+      isMounted = false;
+    };
+  }, [universityId]);
+
+  // Loading State
+  if (loading) {
     return (
-      <main className="flex min-h-[70vh] flex-col items-center justify-center px-6">
+      <main className="flex min-h-[70vh] items-center justify-center bg-[#F8FAFC]">
+        <p className="text-sm text-gray-500">
+          Loading university information...
+        </p>
+      </main>
+    );
+  }
+
+  // Error / Not Found State
+  if (error || !university) {
+    return (
+      <main className="flex min-h-[70vh] flex-col items-center justify-center bg-[#F8FAFC] px-6">
         <h1 className="text-2xl font-bold text-[#142B4A]">
           University Not Found
         </h1>
-        <p className="mt-2 text-gray-500">
-          The university you are looking for does not exist.
+
+        <p className="mt-2 text-center text-gray-500">
+          {error || "The university you are looking for does not exist."}
         </p>
+
         <Link
           href="/universities"
-          className="mt-6 rounded-full bg-[#07368F] px-6 py-3 text-white"
+          className="mt-6 rounded-full bg-[#07368F] px-6 py-3 text-white transition hover:bg-[#142B4A]"
         >
           Back to Catalogue
         </Link>
@@ -34,12 +93,30 @@ export default function UniversityDetailPage() {
   }
 
   const universityInfo = [
-    { label: "Location", value: `${university.location}, ${university.province}` },
-    { label: "Established Year", value: university.establishedYear },
-    { label: "Tuition Fee", value: university.tuitionFee },
-    { label: "Institution Type", value: university.institutionType },
-    { label: "Accreditation", value: university.accreditation },
-    { label: "Website", value: university.website },
+    {
+      label: "Location",
+      value: `${university.location}, ${university.province}`,
+    },
+    {
+      label: "Established Year",
+      value: university.establishedYear || "Not available",
+    },
+    {
+      label: "Tuition Fee",
+      value: university.tuitionFee,
+    },
+    {
+      label: "Institution Type",
+      value: university.institutionType,
+    },
+    {
+      label: "Accreditation",
+      value: university.accreditation,
+    },
+    {
+      label: "Website",
+      value: university.website,
+    },
   ];
 
   return (
@@ -56,12 +133,13 @@ export default function UniversityDetailPage() {
         </Link>
 
         {/* University Image */}
-        <div className="relative h-[260px] w-full overflow-hidden rounded-2xl md:h-[380px]">
+        <div className="relative h-[260px] w-full overflow-hidden rounded-2xl bg-gray-100 md:h-[380px]">
           <Image
             src={university.image}
             alt={university.name}
             fill
             priority
+            unoptimized
             className="object-cover"
             sizes="(max-width: 768px) 100vw, 1024px"
           />
@@ -98,7 +176,7 @@ export default function UniversityDetailPage() {
                     {item.label}
                   </span>
 
-                  {item.label === "Website" ? (
+                  {item.label === "Website" && university.website ? (
                     <a
                       href={university.website}
                       target="_blank"
@@ -110,7 +188,7 @@ export default function UniversityDetailPage() {
                     </a>
                   ) : (
                     <span className="text-sm text-gray-700">
-                      {item.value}
+                      {item.value || "Not available"}
                     </span>
                   )}
                 </div>
