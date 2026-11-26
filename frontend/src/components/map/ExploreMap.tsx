@@ -7,9 +7,13 @@ import {
   Marker,
   TileLayer,
   useMap,
+  Popup,
 } from "react-leaflet";
+
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+
+import Link from "next/link";
 import { University } from "@/types/university";
 
 interface ExploreMapProps {
@@ -17,6 +21,10 @@ interface ExploreMapProps {
   selectedUniversity: University | null;
   onSelectUniversity: (university: University) => void;
 }
+
+// ==========================================
+// CUSTOM MARKER ICON
+// ==========================================
 
 const createMarkerIcon = (selected: boolean) =>
   L.divIcon({
@@ -30,6 +38,10 @@ const createMarkerIcon = (selected: boolean) =>
     iconAnchor: [17, 44],
   });
 
+// ==========================================
+// MAP CONTROLLER
+// ==========================================
+
 function MapController({
   universities,
   selectedUniversity,
@@ -41,21 +53,31 @@ function MapController({
 
   useEffect(() => {
     if (selectedUniversity) {
-      map.flyTo(
-        [
-          selectedUniversity.latitude,
-          selectedUniversity.longitude,
-        ],
-        15,
-        { duration: 1 }
-      );
+      const lat = Number(selectedUniversity.latitude);
+      const lng = Number(selectedUniversity.longitude);
+
+      if (
+        !Number.isFinite(lat) ||
+        !Number.isFinite(lng)
+      ) {
+        return;
+      }
+
+      map.flyTo([lat, lng], 16, {
+        duration: 1.5,
+      });
 
       return;
     }
 
     if (universities.length === 1) {
+      const university = universities[0];
+
       map.flyTo(
-        [universities[0].latitude, universities[0].longitude],
+        [
+          university.latitude,
+          university.longitude,
+        ],
         14,
         { duration: 1 }
       );
@@ -68,7 +90,7 @@ function MapController({
         universities.map((university) => [
           university.latitude,
           university.longitude,
-        ])
+        ] as [number, number])
       );
 
       map.flyToBounds(bounds, {
@@ -81,6 +103,10 @@ function MapController({
 
   return null;
 }
+
+// ==========================================
+// EXPLORE MAP
+// ==========================================
 
 export default function ExploreMap({
   universities,
@@ -104,21 +130,45 @@ export default function ExploreMap({
         selectedUniversity={selectedUniversity}
       />
 
-      {universities.map((university) => (
-        <Marker
-          key={university.kodePT}
-          position={[
-            university.latitude,
-            university.longitude,
-          ]}
-          icon={createMarkerIcon(
-            selectedUniversity?.kodePT === university.kodePT
-          )}
-          eventHandlers={{
-            click: () => onSelectUniversity(university),
-          }}
-        />
-      ))}
+      {universities.map((university) => {
+        const isSelected =
+          selectedUniversity?.kodePT === university.kodePT;
+
+        return (
+          <Marker
+            key={university.kodePT}
+            position={[
+              university.latitude,
+              university.longitude,
+            ]}
+            icon={createMarkerIcon(isSelected)}
+            eventHandlers={{
+              click: () => onSelectUniversity(university),
+            }}
+          >
+            {isSelected && (
+              <Popup>
+                <div className="min-w-[180px]">
+                  <p className="font-semibold text-[#142B4A]">
+                    {university.name}
+                  </p>
+
+                  <p className="mt-1 text-xs text-gray-500">
+                    {university.location}, {university.province}
+                  </p>
+
+                  <Link
+                    href={`/universities/${university.slug || university.id}`}
+                    className="mt-2 inline-block text-xs font-semibold text-blue-700 hover:underline"
+                  >
+                    View University Details
+                  </Link>
+                </div>
+              </Popup>
+            )}
+          </Marker>
+        );
+      })}
     </MapContainer>
   );
 }

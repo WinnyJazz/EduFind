@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useState } from "react";
@@ -118,6 +119,11 @@ export default function UniversityDetailPage() {
     },
   ];
 
+  // Open in Map URL
+  const mapUrl = `/explore?university=${encodeURIComponent(
+    String(university.kodePT || university.id)
+  )}&lat=${university.latitude}&lng=${university.longitude}`;
+
   return (
     <main className="min-h-screen bg-[#F8FAFC] px-6 py-10 md:px-10">
       <div className="mx-auto max-w-5xl">
@@ -134,7 +140,7 @@ export default function UniversityDetailPage() {
         {/* University Image */}
         <div className="relative h-[260px] w-full overflow-hidden rounded-2xl bg-gray-100 md:h-[380px]">
           <SafeImage
-            src={university.image}
+            src={university.image || "/universitybackup.png"}
             alt={university.name}
             fill
             priority
@@ -196,13 +202,21 @@ export default function UniversityDetailPage() {
 
           {/* Open in Map */}
           <div className="mt-8 flex justify-center">
-            <Link
-              href={`/explore?university=${university.id}`}
-              className="inline-flex items-center gap-2 rounded-full bg-[#07368F] px-8 py-3.5 font-semibold text-white shadow-sm transition hover:bg-[#142B4A] hover:shadow-md"
-            >
-              <MapPin size={18} />
-              Open in Map
-            </Link>
+            {Number.isFinite(university.latitude) &&
+            Number.isFinite(university.longitude) &&
+            (university.latitude !== 0 || university.longitude !== 0) ? (
+              <Link
+                href={mapUrl}
+                className="inline-flex items-center gap-2 rounded-full bg-[#07368F] px-8 py-3.5 font-semibold text-white shadow-sm transition hover:bg-[#142B4A] hover:shadow-md"
+              >
+                <MapPin size={18} />
+                Open in Map
+              </Link>
+            ) : (
+              <p className="text-sm text-gray-500">
+                University coordinates are not available.
+              </p>
+            )}
           </div>
 
         </section>

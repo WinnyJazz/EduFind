@@ -3,7 +3,6 @@ import Link from "next/link";
 
 const navLinks = [
   { label: "Home", href: "/" },
-  { label: "About Us", href: "/about" },
   { label: "Explore Map", href: "/explore" },
   { label: "Campus Catalogue", href: "/universities" },
 ];

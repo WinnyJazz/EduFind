@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { motion } from "motion/react";
 import { Sparkles } from "lucide-react";
@@ -10,38 +10,62 @@ import { University } from "@/types/university";
 import { getUniversities } from "@/services/universityService";
 
 import UniversitySearch from "@/components/university/UniversitySearch";
-import UniversityFilter from "@/components/university/UniversityFilter";
+import UniversityFilter, {
+  UniversityFilters,
+} from "@/components/university/UniversityFilter";
 import UniversityCard from "@/components/university/UniversityCard";
+
+const ITEMS_PER_PAGE = 12;
 
 export default function UniversitiesPage() {
   const [universities, setUniversities] = useState<University[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
 
+  const [activeFilters, setActiveFilters] = useState<UniversityFilters>({
+    location: "",
+    maxTuition: "",
+    ownership: "",
+    accreditation: "",
+  });
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
+
+  // ==========================================
+  // FETCH ALL UNIVERSITIES
+  // ==========================================
 
   useEffect(() => {
     let isMounted = true;
 
-    async function fetchUniversities() {
+    async function fetchAllUniversities() {
       try {
         setLoading(true);
         setError("");
 
-        const result = await getUniversities({
-          search: searchQuery,
-          page,
-          limit: 12,
+        const firstResult = await getUniversities({
+          page: 1,
+          limit: 100,
         });
 
+        let allData = [...firstResult.universities];
+
+        const totalPages = firstResult.totalPages;
+
+        // Fetch remaining pages
+        for (let currentPage = 2; currentPage <= totalPages; currentPage++) {
+          const result = await getUniversities({
+            page: currentPage,
+            limit: 100,
+          });
+
+          allData = [...allData, ...result.universities];
+        }
+
         if (isMounted) {
-          setUniversities(result.universities);
-          setTotal(result.total);
-          setTotalPages(result.totalPages);
+          setUniversities(allData);
         }
       } catch (err) {
         if (isMounted) {
@@ -58,24 +82,142 @@ export default function UniversitiesPage() {
       }
     }
 
-    fetchUniversities();
+    fetchAllUniversities();
 
     return () => {
       isMounted = false;
     };
-  }, [searchQuery, page]);
+  }, []);
+
+  // ==========================================
+  // SEARCH HANDLER
+  // ==========================================
 
   function handleSearch(value: string) {
     setSearchQuery(value);
     setPage(1);
   }
 
+  // ==========================================
+  // FILTER HANDLER
+  // ==========================================
+
+  function handleFilterChange(filters: UniversityFilters) {
+    setActiveFilters(filters);
+    setPage(1);
+  }
+
+  // ==========================================
+  // ACCREDITATION NORMALIZATION
+  // ==========================================
+
+  function normalizeAccreditation(value: string) {
+    const accreditation = value
+      .trim()
+      .toLowerCase()
+      .replace(/[_-]/g, " ")
+      .replace(/\s+/g, " ");
+
+    if (accreditation.includes("unggul")) return "unggul";
+
+    if (accreditation.includes("baik sekali")) {
+      return "baik sekali";
+    }
+
+    if (/\bbaik\b/.test(accreditation)) {
+      return "baik";
+    }
+
+    if (/\ba\b/.test(accreditation)) return "a";
+    if (/\bb\b/.test(accreditation)) return "b";
+    if (/\bc\b/.test(accreditation)) return "c";
+
+    return accreditation;
+  }
+
+  // ==========================================
+  // FILTER AND SEARCH UNIVERSITIES
+  // ==========================================
+
+  const filteredUniversities = useMemo(() => {
+    return universities.filter((university) => {
+      // Search by university name
+      const searchMatch =
+        !searchQuery.trim() ||
+        university.name
+          .toLowerCase()
+          .includes(searchQuery.trim().toLowerCase());
+
+      // Search by city or province
+      const locationMatch =
+        !activeFilters.location.trim() ||
+        `${university.location} ${university.province}`
+          .toLowerCase()
+          .includes(activeFilters.location.trim().toLowerCase());
+
+      // Maximum tuition fee
+      const maxTuition = Number(activeFilters.maxTuition);
+
+      const tuitionMatch =
+        !activeFilters.maxTuition ||
+        (
+          university.tuitionAmount !== null &&
+          Number.isFinite(university.tuitionAmount) &&
+          university.tuitionAmount <= maxTuition
+        );
+
+      // PTN / PTS
+      const ownershipMatch =
+        !activeFilters.ownership ||
+        university.institutionType === activeFilters.ownership;
+
+      // Accreditation
+      const accreditationMatch =
+        !activeFilters.accreditation ||
+        normalizeAccreditation(university.accreditation) ===
+          normalizeAccreditation(activeFilters.accreditation);
+
+      return (
+        searchMatch &&
+        locationMatch &&
+        tuitionMatch &&
+        ownershipMatch &&
+        accreditationMatch
+      );
+    });
+  }, [universities, searchQuery, activeFilters]);
+
+  // ==========================================
+  // PAGINATION
+  // ==========================================
+
+  const total = filteredUniversities.length;
+
+  const totalPages = Math.max(
+    1,
+    Math.ceil(total / ITEMS_PER_PAGE)
+  );
+
+  const currentPage = Math.min(page, totalPages);
+
+  const paginatedUniversities = filteredUniversities.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  );
+
+  // ==========================================
+  // RENDER
+  // ==========================================
+
   return (
     <main className="min-h-screen bg-[#F8FAFC] px-6 py-12 md:px-10">
       <motion.div
         initial={{ opacity: 0, y: 18 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+        transition={{
+          duration: 0.6,
+          ease: [0.22, 1, 0.36, 1],
+        }}
         className="mx-auto max-w-[1440px]"
       >
         {/* Page Heading */}
@@ -104,20 +246,26 @@ export default function UniversitiesPage() {
             href="/recommendations"
             className="inline-flex min-h-[48px] shrink-0 items-center justify-center gap-2 rounded-lg bg-[#07368F] px-5 py-3 text-sm font-semibold text-white shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:bg-[#142B4A] hover:shadow-md"
           >
-            <Sparkles size={17} className="text-[#D7AD68]" />
+            <Sparkles size={17} className="text-[#D7AD68}" />
             Find My Recommendation
           </Link>
         </div>
 
         {/* Catalogue Content */}
         <div className="grid grid-cols-1 gap-8 lg:grid-cols-[250px_1fr]">
+
           {/* Sidebar Filter */}
           <motion.aside
             initial={{ opacity: 0, x: -15 }}
             animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.5, delay: 0.2 }}
+            transition={{
+              duration: 0.5,
+              delay: 0.2,
+            }}
           >
-            <UniversityFilter />
+            <UniversityFilter
+              onFilterChange={handleFilterChange}
+            />
           </motion.aside>
 
           {/* University Results */}
@@ -125,13 +273,16 @@ export default function UniversitiesPage() {
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              transition={{ duration: 0.5, delay: 0.3 }}
+              transition={{
+                duration: 0.5,
+                delay: 0.3,
+              }}
               className="mb-5 flex items-center justify-between"
             >
               <p className="text-sm text-gray-500">
                 Showing{" "}
                 <span className="font-semibold text-[#142B4A]">
-                  {total}
+                  {loading ? "..." : total}
                 </span>{" "}
                 universities
               </p>
@@ -146,12 +297,14 @@ export default function UniversitiesPage() {
                 <h3 className="text-lg font-semibold text-red-600">
                   Failed to load universities
                 </h3>
+
                 <p className="mt-2 text-sm text-gray-500">
                   {error}
                 </p>
               </div>
-            ) : universities.length > 0 ? (
+            ) : paginatedUniversities.length > 0 ? (
               <>
+                {/* University Cards */}
                 <motion.div
                   initial="hidden"
                   animate="visible"
@@ -166,12 +319,18 @@ export default function UniversitiesPage() {
                   }}
                   className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3"
                 >
-                  {universities.map((university) => (
+                  {paginatedUniversities.map((university) => (
                     <motion.div
                       key={university.id}
                       variants={{
-                        hidden: { opacity: 0, y: 18 },
-                        visible: { opacity: 1, y: 0 },
+                        hidden: {
+                          opacity: 0,
+                          y: 18,
+                        },
+                        visible: {
+                          opacity: 1,
+                          y: 0,
+                        },
                       }}
                       transition={{
                         duration: 0.45,
@@ -186,21 +345,21 @@ export default function UniversitiesPage() {
                 {/* Pagination */}
                 <div className="mt-10 flex items-center justify-center gap-4">
                   <button
-                    disabled={page <= 1}
+                    disabled={currentPage <= 1}
                     onClick={() => setPage((prev) => prev - 1)}
-                    className="rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-[#142B4A] disabled:cursor-not-allowed disabled:opacity-40"
+                    className="rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-[#142B4A] transition hover:border-[#07368F] disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     Previous
                   </button>
 
                   <span className="text-sm text-gray-500">
-                    Page {page} of {totalPages}
+                    Page {currentPage} of {totalPages}
                   </span>
 
                   <button
-                    disabled={page >= totalPages}
+                    disabled={currentPage >= totalPages}
                     onClick={() => setPage((prev) => prev + 1)}
-                    className="rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-[#142B4A] disabled:cursor-not-allowed disabled:opacity-40"
+                    className="rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-[#142B4A] transition hover:border-[#07368F] disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     Next
                   </button>
@@ -213,14 +372,22 @@ export default function UniversitiesPage() {
                 </h3>
 
                 <p className="mt-2 text-sm text-gray-500">
-                  Try searching with another university name.
+                  Try changing your search or filter preferences.
                 </p>
 
                 <button
-                  onClick={() => handleSearch("")}
+                  onClick={() => {
+                    handleSearch("");
+                    handleFilterChange({
+                      location: "",
+                      maxTuition: "",
+                      ownership: "",
+                      accreditation: "",
+                    });
+                  }}
                   className="mt-5 text-sm font-semibold text-[#07368F] hover:underline"
                 >
-                  Clear Search
+                  Clear Search and Filters
                 </button>
               </div>
             )}

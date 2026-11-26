@@ -1,10 +1,10 @@
 
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
-import { ArrowLeft, MapPin, X } from "lucide-react";
+import { MapPin, X } from "lucide-react";
 import { University } from "@/types/university";
+import SafeImage from "@/components/common/SafeImage";
 
 interface Props {
   universities: University[];
@@ -32,6 +32,7 @@ export default function UniversityMapSidebar({
               ? "Selected University"
               : "University Results"}
           </p>
+
           <p className="mt-1 text-xs text-blue-100">
             {selectedUniversity
               ? "1 university selected"
@@ -67,12 +68,12 @@ export default function UniversityMapSidebar({
               </p>
 
               <div className="relative h-36 w-full overflow-hidden bg-gray-100">
-                <Image
-                  src={university.image || "/universitybackup.jpg"}
+                <SafeImage
+                  src={university.image || "/universitybackup.png"}
                   alt={university.name}
                   fill
-                  unoptimized
                   className="object-cover"
+                  sizes="300px"
                 />
               </div>
 
@@ -97,9 +98,11 @@ export default function UniversityMapSidebar({
         ) : (
           <div className="py-12 text-center">
             <MapPin size={30} className="mx-auto text-blue-200" />
+
             <p className="mt-3 text-sm font-semibold">
               No universities found
             </p>
+
             <p className="mt-1 text-xs text-blue-100">
               Try another university name or location.
             </p>

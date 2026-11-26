@@ -3,7 +3,12 @@
 
 import { useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
-import { Search, MapPin, LoaderCircle, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import {
+  Search,
+  LoaderCircle,
+  PanelLeftClose,
+  PanelLeftOpen,
+} from "lucide-react";
 
 import { University } from "@/types/university";
 import { getAllUniversitiesForMap } from "@/services/universityService";
@@ -27,6 +32,7 @@ const ExploreMap = dynamic(
 export default function ExplorePage() {
   const [universities, setUniversities] = useState<University[]>([]);
   const [search, setSearch] = useState("");
+
   const [selectedUniversity, setSelectedUniversity] =
     useState<University | null>(null);
 
@@ -34,41 +40,117 @@ export default function ExplorePage() {
   const [error, setError] = useState("");
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
+  // ==========================================
+  // LOAD UNIVERSITIES
+  // ==========================================
+
   useEffect(() => {
+    let isMounted = true;
+
     async function loadUniversities() {
       try {
         setLoading(true);
         setError("");
 
         const data = await getAllUniversitiesForMap();
-        setUniversities(data);
+
+        if (isMounted) {
+          setUniversities(data);
+        }
       } catch (err) {
-        setError(
-          err instanceof Error
-            ? err.message
-            : "Failed to load universities"
-        );
+        if (isMounted) {
+          setError(
+            err instanceof Error
+              ? err.message
+              : "Failed to load universities"
+          );
+        }
       } finally {
-        setLoading(false);
+        if (isMounted) {
+          setLoading(false);
+        }
       }
     }
 
     loadUniversities();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
+
+  // ==========================================
+  // AUTO SELECT UNIVERSITY FROM URL
+  // ==========================================
+
+  useEffect(() => {
+    if (loading || universities.length === 0) {
+      return;
+    }
+
+    const params = new URLSearchParams(window.location.search);
+
+    const universityParam = params.get("university");
+
+    if (!universityParam) {
+      return;
+    }
+
+    const foundUniversity = universities.find((university) => {
+      return (
+        String(university.kodePT) === universityParam ||
+        String(university.id) === universityParam ||
+        university.slug === universityParam
+      );
+    });
+
+    if (foundUniversity) {
+      setSelectedUniversity(foundUniversity);
+      setSearch(foundUniversity.name);
+      setSidebarOpen(true);
+    } else {
+      console.warn(
+        "University not found in Explore Map:",
+        universityParam
+      );
+      setSearch(universityParam);
+    }
+  }, [loading, universities]);
+
+  // ==========================================
+  // SEARCH UNIVERSITIES
+  // ==========================================
 
   const filteredUniversities = useMemo(() => {
     const keyword = search.trim().toLowerCase();
 
-    if (!keyword) return universities;
+    if (!keyword) {
+      return universities;
+    }
 
     return universities.filter((university) => {
       return (
         university.name.toLowerCase().includes(keyword) ||
         university.location.toLowerCase().includes(keyword) ||
-        university.province.toLowerCase().includes(keyword)
+        university.province.toLowerCase().includes(keyword) ||
+        String(university.kodePT).includes(keyword)
       );
     });
   }, [universities, search]);
+
+  // ==========================================
+  // VISIBLE UNIVERSITIES
+  // ==========================================
+
+  const visibleUniversities = useMemo(() => {
+    return selectedUniversity
+      ? [selectedUniversity]
+      : filteredUniversities;
+  }, [selectedUniversity, filteredUniversities]);
+
+  // ==========================================
+  // HANDLERS
+  // ==========================================
 
   const handleSearch = (value: string) => {
     setSearch(value);
@@ -77,22 +159,26 @@ export default function ExplorePage() {
 
   const handleSelectUniversity = (university: University) => {
     setSelectedUniversity(university);
+    setSearch(university.name);
+    setSidebarOpen(true);
   };
 
   const handleClearSelection = () => {
     setSelectedUniversity(null);
+    setSearch("");
   };
 
-  const visibleUniversities = selectedUniversity
-    ? [selectedUniversity]
-    : filteredUniversities;
+  // ==========================================
+  // RENDER
+  // ==========================================
 
   return (
     <main className="flex h-[calc(100vh-80px)] min-h-[600px] flex-col overflow-hidden bg-white">
-      {/* Search bar */}
+
+      {/* Search Bar */}
       <div className="z-[500] flex items-center gap-3 border-b border-gray-200 bg-white px-4 py-3 md:px-6">
         <button
-          onClick={() => setSidebarOpen(!sidebarOpen)}
+          onClick={() => setSidebarOpen((previous) => !previous)}
           className="rounded-lg border border-gray-200 p-2 text-gray-600 hover:bg-gray-100"
           aria-label="Toggle sidebar"
         >
@@ -113,20 +199,24 @@ export default function ExplorePage() {
             type="search"
             value={search}
             onChange={(event) => handleSearch(event.target.value)}
-            placeholder="Search university or location..."
+            placeholder="Search university, code, or location..."
             className="h-11 w-full rounded-full border border-gray-200 bg-white pl-11 pr-4 text-sm text-gray-700 outline-none transition focus:border-[#07368F] focus:ring-2 focus:ring-blue-100"
           />
         </div>
       </div>
 
-      {/* Map and sidebar */}
+      {/* Map and Sidebar */}
       <div className="flex min-h-0 flex-1">
+
+        {/* Sidebar */}
         {sidebarOpen && (
           <div className="z-[400] w-[300px] shrink-0 md:w-[340px]">
             {loading ? (
               <div className="flex h-full items-center justify-center bg-[#17469B] text-white">
                 <LoaderCircle className="animate-spin" />
-                <span className="ml-2 text-sm">Loading universities...</span>
+                <span className="ml-2 text-sm">
+                  Loading universities...
+                </span>
               </div>
             ) : error ? (
               <div className="flex h-full items-center justify-center bg-[#17469B] p-5 text-center text-white">
@@ -143,6 +233,7 @@ export default function ExplorePage() {
           </div>
         )}
 
+        {/* Map */}
         <div className="relative min-w-0 flex-1">
           {loading ? (
             <div className="flex h-full items-center justify-center bg-gray-100">
